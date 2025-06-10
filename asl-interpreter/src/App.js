@@ -1,0 +1,65 @@
+import React, { useRef, useEffect, useState } from 'react';
+import * as tf from '@tensorflow/tfjs';
+import * as handPoseDetection from '@tensorflow-models/hand-pose-detection';
+
+function App() {
+  const videoRef = useRef(null);
+  const [detector, setDetector] = useState(null);
+  const [letter, setLetter] = useState('');
+
+  useEffect(() => {
+    async function setupCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+    }
+    setupCamera();
+
+    async function loadModel() {
+      const model = handPoseDetection.SupportedModels.MediaPipeHands;
+      const detectorConfig = {
+        runtime: 'mediapipe',
+        solutionPath: 'https://cdn.jsdelivr.net/npm/@mediapipe/hands'
+      };
+      const det = await handPoseDetection.createDetector(model, detectorConfig);
+      setDetector(det);
+    }
+    loadModel();
+  }, []);
+
+  useEffect(() => {
+    let interval;
+    if (detector && videoRef.current) {
+      interval = setInterval(async () => {
+        const hands = await detector.estimateHands(videoRef.current);
+        if (hands.length) {
+          const landmarks = hands[0].keypoints.map(p => [p.x, p.y, p.z]);
+          const predicted = classify(landmarks);
+          if (predicted) {
+            setLetter(predicted);
+            const utter = new SpeechSynthesisUtterance(predicted);
+            window.speechSynthesis.speak(utter);
+          }
+        }
+      }, 200);
+    }
+    return () => clearInterval(interval);
+  }, [detector]);
+
+  function classify(landmarks) {
+    // TODO: implement ML classification of landmarks to letters
+    return '';
+  }
+
+  return (
+    <div>
+      <h1>ASL Interpreter</h1>
+      <video ref={videoRef} width="640" height="480" />
+      <p>Detected Letter: {letter}</p>
+    </div>
+  );
+}
+
+export default App;
