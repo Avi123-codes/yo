@@ -139,4 +139,4 @@ for i in range(10): # Look at first 10 test samples
     print(f"Sample {i+1}: Actual: {actual_label}, Predicted: {predicted_label} {'(Correct)' if actual_label == predicted_label else '(Incorrect)'}")
 
 #Save model
-torch.save(model.state_dict(), "iris_model.pt")
+torch.save(model.state_dict(), "ASL_Model.pt")
