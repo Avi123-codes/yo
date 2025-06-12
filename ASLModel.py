@@ -10,7 +10,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
 class Model(nn.Module):
-    def __init__(self, input_features = 42, h1 = 64, h2 = 64, output_features = 26):
+    def __init__(self, input_features = 4096, h1 = 512, h2 = 256, output_features = 26):
         super().__init__()
         self.fc1 = nn.Linear(input_features, h1) # nn.Sequential for a CNN model
         self.fc2 = nn.Linear(h1, h2)
