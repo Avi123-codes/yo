@@ -9,24 +9,18 @@ from sklearn.model_selection import train_test_split
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
-class CNNModel(nn.Module):
-    def __init__(self, num_classes):
-        super(CNNModel, self).__init__()
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, padding=1)  # Grayscale: input channels = 1
-        self.pool = nn.MaxPool2d(2, 2)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
-        self.fc1 = nn.Linear(32 * 7 * 7, 128)  # 28x28 -> pool -> 14x14 -> pool -> 7x7
-        self.fc2 = nn.Linear(128, num_classes)
+class Model(nn.Module):
+    def __init__(self, input_features = 4, h1 = 8, h2 = 8, output_features = 3):
+        super().__init__()
+        self.fc1 = nn.Linear(input_features, h1) # nn.Sequential for a CNN model
+        self.fc2 = nn.Linear(h1, h2)
+        self.out = nn.Linear(h2, output_features)
 
-    def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))  # 16x14x14
-        x = self.pool(F.relu(self.conv2(x)))  # 32x7x7
-        x = x.view(-1, 32 * 7 * 7)
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
-
-
+    def forward(self, X):
+        X = F.relu(self.fc1(X))
+        X = F.relu(self.fc2(X))
+        X = self.out(X)
+        return X
 
 torch.manual_seed(20)
 
