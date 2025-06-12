@@ -29,7 +29,7 @@ model = Model().to(device)
 print(model)
 
 # Load the dataset
-url = 'https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b0a5d22642a06d3d5b9bcbad9890c8ee534/iris.csv'
+url = 'https://raw.githubusercontent.com/Avi123-codes/yo/refs/heads/main/asl_image_dataset%20(1).csv '
 data = pd.read_csv(url)
 
 # ---Data Processing___
@@ -61,11 +61,11 @@ letters_mapping = {
     "Y": 24,
     "Z": 25
 }
-data["letter"] = data["letter"].map(letters_mapping)
+data["label"] = data["label"].map(letters_mapping)
 
 # Split input (X) and output (y)
-X = data.drop("letter", axis = 1).values # Convert to NumPy array directly
-y = data["letter"].values # Convert to NumPy array directly
+X = data.drop("label", axis = 1).values # Convert to NumPy array directly
+y = data["label"].values # Convert to NumPy array directly
 
 # Split data into training and testing sets
 # Correct Order: Output order is X_train, X_test, y_train, y_test
