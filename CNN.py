@@ -10,7 +10,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
 
 class Model(nn.Module):
-    def __init__(self, input_features = 4, h1 = 8, h2 = 8, output_features = 3):
+    def __init__(self, input_features = 42, h1 = 64, h2 = 64, output_features = 26):
         super().__init__()
         self.fc1 = nn.Linear(input_features, h1) # nn.Sequential for a CNN model
         self.fc2 = nn.Linear(h1, h2)
@@ -33,17 +33,39 @@ url = 'https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b
 data = pd.read_csv(url)
 
 # ---Data Processing___
-# Encode species using .map() - good for fixed, known categories
-species_mapping = {
-    "setosa": 0,
-    "versicolor": 1,
-    "virginica": 2
+letters_mapping = {
+    "A": 0,
+    "B": 1,
+    "C": 2,
+    "D": 3,
+    "E": 4,
+    "F": 5,
+    "G": 6,
+    "H": 7,
+    "I": 8,
+    "J": 9,
+    "K": 10,
+    "L": 11,
+    "M": 12,
+    "N": 13,
+    "O": 14,
+    "P": 15,
+    "Q": 16,
+    "R": 17,
+    "S": 18,
+    "T": 19,
+    "U": 20,
+    "v": 21,
+    "W": 22,
+    "X": 23,
+    "Y": 24,
+    "Z": 25
 }
-data["species"] = data["species"].map(species_mapping)
+data["letter"] = data["letter"].map(letters_mapping)
 
 # Split input (X) and output (y)
-X = data.drop("species", axis = 1).values # Convert to NumPy array directly
-y = data["species"].values # Convert to NumPy array directly
+X = data.drop("letter", axis = 1).values # Convert to NumPy array directly
+y = data["letter"].values # Convert to NumPy array directly
 
 # Split data into training and testing sets
 # Correct Order: Output order is X_train, X_test, y_train, y_test
@@ -57,13 +79,12 @@ X_test = torch.FloatTensor(X_test).to(device)
 y_test = torch.LongTensor(y_test).to(device)
 
 # Define Loss function and Optimizer
-criteria = nn.CrossEntropyLoss().to(device) # Move loss function to device too
+criteria = nn.CrossEntropyLoss().to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr = 0.01)
-
 
 # ---Training Loop---
 epochs = 500
-losses = [] # To store training loss values
+losses = []
 
 for i in range(epochs):
     # Forward Pass: Compute predicted y by passing X to model
@@ -80,18 +101,17 @@ for i in range(epochs):
         print(f"Epoch: {i}, Loss: {loss.item():.4f}") # Use .item() for printing
 
     # Zero gradients, perform a backward pass, and update the weights.
-    optimizer.zero_grad() # Clear previous gradients
-    loss.backward()       # Compute gradients
-    optimizer.step()      # Update model parameters
+    optimizer.zero_grad() 
+    loss.backward()    
+    optimizer.step()  
 
 print(f"\nFinal training Loss: {losses[-1]:.4f}")
 
-
 # ---Model Evaluation (on Test Set) ---
 print("\n--- Model Evaluation ---")
-with torch.no_grad(): # Disable gradient calculation for inference
-    model.eval() # Set model to evaluation mode (e.g., disables dropout if used)
-    y_eval = model(X_test) # Use model() instead of model.forward() for consistency
+with torch.no_grad(): 
+    model.eval() 
+    y_eval = model(X_test) 
     test_loss = criteria(y_eval, y_test)
     print(f"Final Test Loss: {test_loss.item():.4f}")
 
@@ -117,7 +137,6 @@ for i in range(10): # Look at first 10 test samples
     actual_label = y_test[i].item()
     predicted_label = predicted_classes[i].item()
     print(f"Sample {i+1}: Actual: {actual_label}, Predicted: {predicted_label} {'(Correct)' if actual_label == predicted_label else '(Incorrect)'}")
-
 
 #Save model
 torch.save(model.state_dict(), "iris_model.pt")
