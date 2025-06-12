@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const ASLInterpreter = () => {
+const ASLInterpreter = ({ letter }) => {
   const [letterBuffer, setLetterBuffer] = useState('');
   const [wordBuffer, setWordBuffer] = useState('');
   const [sentence, setSentence] = useState('');
@@ -8,47 +8,42 @@ const ASLInterpreter = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (Date.now() - lastLetterTime > 1000 && letterBuffer) {
+      const now = Date.now();
+
+      if (now - lastLetterTime > 1000 && letterBuffer) {
         setWordBuffer(prev => prev + letterBuffer);
         setLetterBuffer('');
       }
-      if (Date.now() - lastLetterTime > 2000 && wordBuffer) {
+
+      if (now - lastLetterTime > 2000 && wordBuffer) {
         setSentence(prev => prev + ' ' + wordBuffer);
         setWordBuffer('');
       }
     }, 500);
+
     return () => clearInterval(interval);
   }, [letterBuffer, wordBuffer, lastLetterTime]);
 
-  const handleNewLetter = (letter) => {
-    setLetterBuffer(prev => prev + letter);
-    setLastLetterTime(Date.now());
-  };
+  useEffect(() => {
+    if (letter && letter !== '') {
+      setLetterBuffer(prev => prev + letter);
+      setLastLetterTime(Date.now());
+    }
+  }, [letter]);
 
   const speakText = (text) => {
     const utterance = new SpeechSynthesisUtterance(text);
-    speechSynthesis.speak(utterance);
+    window.speechSynthesis.speak(utterance);
   };
-
-  // TEMP TEST: simulate a new letter being detected every 3 seconds
-  useEffect(() => {
-    const fakeLetters = ['H', 'E', 'L', 'L', 'O'];
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < fakeLetters.length) {
-        handleNewLetter(fakeLetters[index]);
-        index++;
-      }
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <div>
-      <h2>Live Sentence: {sentence}</h2>
+      <h2>Live Sentence:</h2>
+      <p>{sentence}</p>
       <button onClick={() => speakText(sentence)}>Speak</button>
     </div>
   );
 };
 
 export default ASLInterpreter;
+
