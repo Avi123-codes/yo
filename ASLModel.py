@@ -12,7 +12,7 @@ print(f"Using device: {device}")
 class Model(nn.Module):
     def __init__(self, input_features = 4096, h1 = 512, h2 = 256, output_features = 26):
         super().__init__()
-        self.fc1 = nn.Linear(input_features, h1) # nn.Sequential for a CNN model
+        self.fc1 = nn.Linear(input_features, h1)
         self.fc2 = nn.Linear(h1, h2)
         self.out = nn.Linear(h2, output_features)
 
@@ -64,16 +64,15 @@ letters_mapping = {
 data["label"] = data["label"].map(letters_mapping)
 
 # Split input (X) and output (y)
-X = data.drop("label", axis = 1).values # Convert to NumPy array directly
-y = data["label"].values # Convert to NumPy array directly
+X = data.drop("label", axis = 1).values
+y = data["label"].values
 
 # Split data into training and testing sets
-# Correct Order: Output order is X_train, X_test, y_train, y_test
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.4, random_state = 42)
 
 # Convert NumPy arrays to PyTorch Tensors and move to device
 X_train = torch.FloatTensor(X_train).to(device)
-y_train = torch.LongTensor(y_train).to(device) # Labels should be LongTensor
+y_train = torch.LongTensor(y_train).to(device) 
 
 X_test = torch.FloatTensor(X_test).to(device)
 y_test = torch.LongTensor(y_test).to(device)
@@ -98,7 +97,7 @@ for i in range(epochs):
 
     # Print loss every 50 epochs
     if i % 50 == 0:
-        print(f"Epoch: {i}, Loss: {loss.item():.4f}") # Use .item() for printing
+        print(f"Epoch: {i}, Loss: {loss.item():.4f}")
 
     # Zero gradients, perform a backward pass, and update the weights.
     optimizer.zero_grad() 
@@ -133,7 +132,7 @@ plt.show()
 
 # --- Optional: See a few test predictions ---
 print("\n--- Sample Test Predictions ---")
-for i in range(10): # Look at first 10 test samples
+for i in range(10):
     actual_label = y_test[i].item()
     predicted_label = predicted_classes[i].item()
     print(f"Sample {i+1}: Actual: {actual_label}, Predicted: {predicted_label} {'(Correct)' if actual_label == predicted_label else '(Incorrect)'}")
