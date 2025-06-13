@@ -53,8 +53,8 @@ model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=10, batch_s
 
 #  Saving model
 model.save("/content/drive/MyDrive/asl_cnn_model.keras")  
-print("✅ Model saved to your Drive!")
+print("Model saved to your Drive!")
 
 # Evaluating model
 loss, accuracy = model.evaluate(X_test, y_test, verbose=2)
-print(f"\n🎯 Test Accuracy: {accuracy*100:.2f}%")
+print(f"\n Test Accuracy: {accuracy*100:.2f}%")
