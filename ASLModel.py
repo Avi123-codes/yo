@@ -1,3 +1,5 @@
+%env CUDA_LAUNCH_BLOCKING=1
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,36 +7,44 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-import cv2
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from torch.utils.data import TensorDataset, DataLoader
+import os
+import json
+from google.colab import drive
+from torch.utils.data import TensorDataset, DataLoader
 
-# Set up device for GPU acceleration if available
+drive.mount('/content/drive')
+
+# Set device
+os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"Using device: {device}")
+print(f"Using Device: {device}.")
 
+# --- Define Model ---
 class Model(nn.Module):
     def __init__(self, num_classes=26):
         super(Model, self).__init__()
         self.features = nn.Sequential(
             # Layer 1
-            nn.Conv2d(in_channels = 1, out_channels = 32, kernel_size = 3, padding = 1),
+            nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size = 2, stride = 2),
+            nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Layer 2
-            nn.Conv2d(32, 64, kernel_size = 3, padding = 1),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size = 2, stride = 2),
+            nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Layer 3
-            nn.Conv2d(64, 128, kernel_size = 3, padding = 1),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size = 2, stride = 2),
+            nn.MaxPool2d(kernel_size=2, stride=2),
 
             # Layer 4
-            nn.Conv2d(128, 256, kernel_size = 3, padding = 1),
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size = 2, stride = 2)
+            nn.MaxPool2d(kernel_size=2, stride=2)
         )
 
         self.classifier = nn.Sequential(
@@ -50,91 +60,117 @@ class Model(nn.Module):
         x = self.classifier(x)
         return x
 
-torch.manual_seed(20)
+# --- Load and Preprocess Data ---
+letters_mapping = {
+    "A": 0, "B": 1, "C": 2, "D": 3, "E": 4,
+    "F": 5, "G": 6, "H": 7, "I": 8, "J": 9,
+    "K":10, "L":11, "M":12, "N":13, "O":14,
+    "P":15,"Q":16, "R":17, "S":18, "T":19,
+    "U":20,"V":21, "W":22, "X":23, "Y":24, "Z":25
+}
 
-# Instantiate the model and move it to the selected device
+url = '/content/drive/MyDrive/asl_alphabet_full.csv'
+data = pd.read_csv(url)
+
+# Map labels safely
+data["label"] = data["label"].str.upper()
+data["label"] = data["label"].map(letters_mapping)
+data = data.dropna(subset=['label']).copy()
+data['label'] = data['label'].astype(int)
+
+# Split input (X) and output (y)
+X = data.drop("label", axis=1).values.astype("float32")
+y_encoded = data["label"].values
+
+# Normalize inputs
+scaler = StandardScaler()
+X = scaler.fit_transform(X)
+
+# Train/Validation Split
+X_train_np, X_val_np, y_train_np, y_val_np = train_test_split(
+    X, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
+)
+
+# Convert to PyTorch tensors
+X_train = torch.FloatTensor(X_train_np).to(device).view(-1, 1, 64, 64)
+y_train = torch.LongTensor(y_train_np).to(device)
+X_val = torch.FloatTensor(X_val_np).to(device).view(-1, 1, 64, 64)
+y_val = torch.LongTensor(y_val_np).to(device)
+
+# Create datasets and loaders
+batch_size = 64
+train_dataset = TensorDataset(X_train, y_train)
+val_dataset = TensorDataset(X_val, y_val)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=batch_size)
+
+# Print for debugging
+print(f"Labels min: {y_train.min().item()}, max: {y_train.max().item()}")
+
+# Instantiate model
 model = Model().to(device)
 print(model)
 
-# Load the dataset
-url = '/Users/sathia/Documents/ASL Dataset.csv'
-data = pd.read_csv(url)
+# Loss and optimizer
+criterion = nn.CrossEntropyLoss().to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.003)
 
-# ---Data Processing___
-letters_mapping = {
-    "A": 0,
-    "B": 1,
-    "C": 2,
-    "D": 3,
-    "E": 4,
-    "F": 5,
-    "G": 6,
-    "H": 7,
-    "I": 8,
-    "J": 9,
-    "K": 10,
-    "L": 11,
-    "M": 12,
-    "N": 13,
-    "O": 14,
-    "P": 15,
-    "Q": 16,
-    "R": 17,
-    "S": 18,
-    "T": 19,
-    "U": 20,
-    "V": 21,
-    "W": 22,
-    "X": 23,
-    "Y": 24,
-    "Z": 25
-}
-data["label"] = data["label"].map(letters_mapping)
+# Optional LR scheduler
+scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
 
-# Split input (X) and output (y)
-X = data.drop("label", axis = 1).values
-y = data["label"].values
+# Accuracy function
+def calculate_accuracy(loader, model):
+    model.eval()
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for inputs, labels in loader:
+            outputs = model(inputs)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    return 100 * correct / total
 
-# Split data into training and testing sets
-X_train = X
-y_train = y
-
-# Convert NumPy arrays to PyTorch Tensors and move to device
-X_train = torch.FloatTensor(X_train).to(device)
-X_train = X_train.view(-1, 1, 64, 64)
-y_train = torch.LongTensor(y_train).to(device)
-
-# Define Loss function and Optimizer
-criteria = nn.CrossEntropyLoss().to(device) 
-optimizer = torch.optim.Adam(model.parameters(), lr = 0.01)
-
-
-# ---Training Loop---
-epochs = 500
+# Training loop
+epochs = 15
 losses = []
 
-for i in range(epochs):
-    # Forward Pass: Compute predicted y by passing X to model
-    y_pred = model.forward(X_train)
+for epoch in range(epochs):
+    model.train()
+    running_loss = 0.0
+    for batch_X, batch_y in train_loader:
+        optimizer.zero_grad()
+        outputs = model(batch_X)
+        loss = criterion(outputs, batch_y)
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item()
 
-    # Compute and print loss
-    loss = criteria(y_pred, y_train)
+    # Validation
+    model.eval()
+    val_loss = 0.0
+    with torch.no_grad():
+        for batch_X, batch_y in val_loader:
+            outputs = model(batch_X)
+            loss = criterion(outputs, batch_y)
+            val_loss += loss.item()
 
-    # Store loss (detach from graph to prevent memory leak)
-    losses.append(loss.item())
+    train_acc = calculate_accuracy(train_loader, model)
+    val_acc = calculate_accuracy(val_loader, model)
 
-    # Print loss every 50 epochs
-    if i % 50 == 0:
-        print(f"Epoch: {i}, Loss: {loss.item():.4f}") 
+    avg_loss = running_loss / len(train_loader)
+    avg_val_loss = val_loss / len(val_loader)
+    losses.append(avg_loss)
 
-    # Zero gradients, perform a backward pass, and update the weights.
-    optimizer.zero_grad() 
-    loss.backward()     
-    optimizer.step()      
+    print(f"Epoch {epoch+1}/{epochs}, "
+          f"Train Loss: {avg_loss:.4f}, "
+          f"Val Loss: {avg_val_loss:.4f}, "
+          f"Train Acc: {train_acc:.2f}%, "
+          f"Val Acc: {val_acc:.2f}%")
 
-print(f"\nFinal training Loss: {losses[-1]:.4f}")
+    scheduler.step()
 
-# --- Plotting the Loss ---
+# Plot training loss
 plt.figure(figsize=(10, 6))
 plt.plot(range(epochs), losses)
 plt.ylabel("Loss")
@@ -143,46 +179,10 @@ plt.title("Training Loss Over Epochs")
 plt.grid(True)
 plt.show()
 
-# Process Webcame Image
-def preprocess_frame(frame):
-  # Resize to 64 x 64
-  resized_frame = cv2.resize(frame, (64, 64))
-  # Convert to grayscale
-  gray = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
-  # Normalize the gray to fit between 0 and 1
-  normalised = gray / 255
-  # Flatten to 4096 vector
-  tensor = torch.FloatTensor(normalised).to(device).view(-1, 1, 64, 64)
-  return tensor
-
-cap = cv2.VideoCapture(0)
-
-print("Starting webcam... Press 'q' to quit.")
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
-
-    # Preprocess frame
-    input_tensor = preprocess_frame(frame)
-
-    # Run model
-    model.eval()
-    with torch.no_grad():
-        output = model(input_tensor)
-        predicted_class = torch.argmax(output, dim=1).item()
-
-    # Display prediction
-    letter = list(letters_mapping.keys())[list(letters_mapping.values()).index(predicted_class)]
-    cv2.putText(frame, f"Prediction: {letter}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    cv2.imshow('ASL Sign Recognition', frame)
-
-    if cv2.waitKey(10) == ord('q'):
-        print("Closing Webcam")
-        break
-
-cap.release()
-cv2.destroyAllWindows()
-
-#Save model
+# Save model and class mapping
 torch.save(model.state_dict(), "ASL_model.pt")
+idx_to_letter = {v: k for k, v in letters_mapping.items()}
+with open("class_mapping.json", "w") as f:
+    json.dump(idx_to_letter, f)
+
+print("Model and class mapping saved.")
