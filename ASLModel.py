@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+import cv2
 
 # Set up device for GPU acceleration if available
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -16,7 +17,7 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.features = nn.Sequential(
             # Layer 1
-            nn.Conv2d(in_channels = 1, out_channels =32, kernel_size = 3, padding =1),
+            nn.Conv2d(in_channels = 1, out_channels = 32, kernel_size = 3, padding = 1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size = 2, stride = 2),
 
@@ -56,11 +57,10 @@ model = Model().to(device)
 print(model)
 
 # Load the dataset
-url = 'https://raw.githubusercontent.com/Avi123-codes/yo/refs/heads/main/asl_image_dataset%20(1).csv  '
+url = '/Users/sathia/Documents/ASL Dataset.csv'
 data = pd.read_csv(url)
 
 # ---Data Processing___
-# Encode species using .map() - good for fixed, known categories
 letters_mapping = {
     "A": 0,
     "B": 1,
@@ -143,12 +143,46 @@ plt.title("Training Loss Over Epochs")
 plt.grid(True)
 plt.show()
 
-# --- A few test predictions ---
-print("\n--- Sample Test Predictions ---")
-for i in range(10):
-    actual_label = y_test[i].item()
-    predicted_label = predicted_classes[i].item()
-    print(f"Sample {i+1}: Actual: {actual_label}, Predicted: {predicted_label} {'(Correct)' if actual_label == predicted_label else '(Incorrect)'}")
+# Process Webcame Image
+def preprocess_frame(frame):
+  # Resize to 64 x 64
+  resized_frame = cv2.resize(frame, (64, 64))
+  # Convert to grayscale
+  gray = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2GRAY)
+  # Normalize the gray to fit between 0 and 1
+  normalised = gray / 255
+  # Flatten to 4096 vector
+  tensor = torch.FloatTensor(normalised).to(device).view(-1, 1, 64, 64)
+  return tensor
+
+cap = cv2.VideoCapture(0)
+
+print("Starting webcam... Press 'q' to quit.")
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    # Preprocess frame
+    input_tensor = preprocess_frame(frame)
+
+    # Run model
+    model.eval()
+    with torch.no_grad():
+        output = model(input_tensor)
+        predicted_class = torch.argmax(output, dim=1).item()
+
+    # Display prediction
+    letter = list(letters_mapping.keys())[list(letters_mapping.values()).index(predicted_class)]
+    cv2.putText(frame, f"Prediction: {letter}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.imshow('ASL Sign Recognition', frame)
+
+    if cv2.waitKey(10) == ord('q'):
+        print("Closing Webcam")
+        break
+
+cap.release()
+cv2.destroyAllWindows()
 
 #Save model
 torch.save(model.state_dict(), "ASL_model.pt")
