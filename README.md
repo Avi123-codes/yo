@@ -1,32 +1,53 @@
 
-# ASL Interpreter Example
+#  ASL Alphabet Interpreter  
+Recognize American Sign Language letters using deep learning!
 
-This repository contains a minimal example of a real-time American Sign Language (ASL) interpreter.
+This project trains a Convolutional Neural Network (CNN) to classify hand gestures from grayscale images into 29 classes — the English alphabet (A–Z), plus `space` and `nothing`. It supports training, webcam inference, and browser deployment via TensorFlow.js.
 
-## Front-end (`asl-interpreter`)
+---
 
-A React application that accesses the webcam, runs the MediaPipe hand pose detection model via TensorFlow.js and outputs detected letters. The application was created manually and lists its dependencies in `package.json`.
+##  Features
 
-To run the front-end:
+-  29-class classification: A–Z, space, nothing  
+-  Trained on 87,000+ preprocessed hand gesture images  
+-  Run predictions in real time using your webcam  
+-  Exportable to TensorFlow.js for browser-based use  
+-  Fully modular: dataset → training → model → deployment
 
-```bash
-cd asl-interpreter
-npm install
-npm start
-```
 
-## Back-end (`server`)
 
-An optional Node.js/Express server that stores recognised translations in MongoDB. The endpoint `/api/translations` accepts `{ text: "A" }` and stores the record with a timestamp.
 
-```bash
-cd server
-npm install
-npm start
-```
+Required packages:
 
-Set the `MONGO_URI` environment variable to configure the database connection. The server listens on port `3001` by default.
+tensorflow
+pandas
+numpy
+scikit-learn
+opencv-python
+matplotlib
+joblib
 
-## Custom ASL Classifier
 
-The file `asl-interpreter/src/App.js` includes a placeholder `classify` function. Implement this function with your own model to convert hand landmarks to ASL letters. The recognised letter is displayed on the page and spoken using the browser's Speech Synthesis API.
+
+##  Dataset
+
+The dataset was sourced from [Kaggle: ASL Alphabet Dataset](https://www.kaggle.com/datasets/grassknoted/asl-alphabet) and converted into a single `.csv` with pixel-normalized grayscale values for training.
+
+### Label Map:
+
+
+A → 0, B → 1, ..., Z → 25, space → 26, nothing → 27
+
+
+
+
+
+##  Acknowledgments
+
+* Dataset by [grassknoted on Kaggle](https://www.kaggle.com/datasets/grassknoted/asl-alphabet)
+* Help of A.I. tools for brainstorming
+
+
+
+
+
